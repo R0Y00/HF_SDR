@@ -1,0 +1,12 @@
+[
+{
+  "directory": "D:/vivadoproject/HF_SDR/vitis/StreamTest/build",
+  "command": "D:\\Xilinx\\2025.2\\Vitis\\gnu\\aarch32\\nt\\gcc-arm-none-eabi\\bin\\arm-none-eabi-gcc.exe -ID:/vivadoproject/HF_SDR/vitis/StreamTest/src -isystem D:/vivadoproject/HF_SDR/vitis/DataStreamTest/export/DataStreamTest/sw/standalone_ps7_cortexa9_0/include -isystem D:/Xilinx/2025.2/gnu/aarch32/nt/gcc-arm-none-eabi/x86_64-oesdk-mingw32/usr/lib/arm-xilinx-eabi/gcc/arm-xilinx-eabi/13.3.0/include -isystem D:/Xilinx/2025.2/gnu/aarch32/nt/gcc-arm-none-eabi/x86_64-oesdk-mingw32/usr/lib/arm-xilinx-eabi/gcc/arm-xilinx-eabi/13.3.0/include-fixed -isystem D:/Xilinx/2025.2/Vitis/gnu/aarch32/nt/gcc-arm-none-eabi/aarch32-xilinx-eabi/usr/include  -DSDT -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard  -MMD -MP -specs=D:/vivadoproject/HF_SDR/vitis/DataStreamTest/export/DataStreamTest/sw/standalone_ps7_cortexa9_0/Xilinx.spec -ID:/vivadoproject/HF_SDR/vitis/DataStreamTest/export/DataStreamTest/sw/standalone_ps7_cortexa9_0/include -Wall -Wextra      -O0  -g3     -U__clang__ -o CMakeFiles\\StreamTest.elf.dir\\main.c.obj -c D:\\vivadoproject\\HF_SDR\\vitis\\StreamTest\\src\\main.c",
+  "file": "D:\\vivadoproject\\HF_SDR\\vitis\\StreamTest\\src\\main.c"
+},
+{
+  "directory": "D:/vivadoproject/HF_SDR/vitis/StreamTest/build",
+  "command": "D:\\Xilinx\\2025.2\\Vitis\\gnu\\aarch32\\nt\\gcc-arm-none-eabi\\bin\\arm-none-eabi-gcc.exe -ID:/vivadoproject/HF_SDR/vitis/StreamTest/src -isystem D:/vivadoproject/HF_SDR/vitis/DataStreamTest/export/DataStreamTest/sw/standalone_ps7_cortexa9_0/include -isystem D:/Xilinx/2025.2/gnu/aarch32/nt/gcc-arm-none-eabi/x86_64-oesdk-mingw32/usr/lib/arm-xilinx-eabi/gcc/arm-xilinx-eabi/13.3.0/include -isystem D:/Xilinx/2025.2/gnu/aarch32/nt/gcc-arm-none-eabi/x86_64-oesdk-mingw32/usr/lib/arm-xilinx-eabi/gcc/arm-xilinx-eabi/13.3.0/include-fixed -isystem D:/Xilinx/2025.2/Vitis/gnu/aarch32/nt/gcc-arm-none-eabi/aarch32-xilinx-eabi/usr/include  -DSDT -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard  -MMD -MP -specs=D:/vivadoproject/HF_SDR/vitis/DataStreamTest/export/DataStreamTest/sw/standalone_ps7_cortexa9_0/Xilinx.spec -ID:/vivadoproject/HF_SDR/vitis/DataStreamTest/export/DataStreamTest/sw/standalone_ps7_cortexa9_0/include -Wall -Wextra      -O0  -g3     -U__clang__ -o CMakeFiles\\StreamTest.elf.dir\\platform.c.obj -c D:\\vivadoproject\\HF_SDR\\vitis\\StreamTest\\src\\platform.c",
+  "file": "D:\\vivadoproject\\HF_SDR\\vitis\\StreamTest\\src\\platform.c"
+}
+]

@@ -1,0 +1,63 @@
+# Vivado generated output
+*.jou
+*.log
+*.str
+*.wdb
+*.wdf
+*.pb
+*.rpt
+*.rpx
+*.dcp
+*.bit
+*.bin
+*.mmi
+*.ltx
+*.mcs
+*.prm
+
+HF_SDR.cache/
+HF_SDR.gen/
+HF_SDR.hw/
+HF_SDR.ip_user_files/
+HF_SDR.runs/
+HF_SDR.sim/
+
+# Vitis generated output
+vitis/_ide/
+vitis/**/build/
+vitis/**/_ide/
+vitis/**/.metadata/
+vitis/**/.settings/
+vitis/**/Debug/
+vitis/**/Release/
+vitis/**/compile_commands.json
+vitis/**/*.elf
+vitis/**/*.elf.size
+vitis/**/*.map
+vitis/**/*.o
+vitis/**/*.obj
+vitis/**/*.a
+
+# Generated platform/BSP exports can be rebuilt from the XSA.
+vitis/DataStreamTest/
+
+# Local editor and OS noise
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+
+# Keep source, constraints, Vivado project, exported XSA, and hand-written
+# Vitis app sources trackable by default.
+!.gitignore
+!AGENTS.md
+!HF_SDR.xpr
+!DataStreamTest.xsa
+!HF_SDR.srcs/
+!HF_SDR.srcs/**
+!vitis/
+!vitis/StreamTest/
+!vitis/StreamTest/src/
+!vitis/StreamTest/src/**
