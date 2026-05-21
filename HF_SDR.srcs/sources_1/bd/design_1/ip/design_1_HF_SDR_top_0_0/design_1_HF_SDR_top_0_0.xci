@@ -8,15 +8,17 @@
     "gen_directory": "../../../../../../HF_SDR.gen/sources_1/bd/design_1/ip/design_1_HF_SDR_top_0_0",
     "parameters": {
       "component_parameters": {
-        "DECIM_BITS": [ { "value": "6", "resolve_type": "user", "format": "long", "usage": "all" } ],
-        "AXIS_PACKET_SAMPLES": [ { "value": "512", "resolve_type": "user", "format": "long", "usage": "all" } ],
+        "DECIM_BITS": [ { "value": "8", "resolve_type": "user", "format": "long", "usage": "all" } ],
+        "AXIS_PACKET_WORDS": [ { "value": "512", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "ADC_OFFSET_BINARY": [ { "value": "\"1\"", "resolve_type": "user", "format": "bitString", "usage": "all" } ],
+        "DDC_PHASE_INC": [ { "value": "0x13B13B14", "resolve_type": "user", "format": "bitString", "usage": "all" } ],
         "Component_Name": [ { "value": "design_1_HF_SDR_top_0_0", "resolve_type": "user", "usage": "all" } ]
       },
       "model_parameters": {
-        "DECIM_BITS": [ { "value": "6", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "AXIS_PACKET_SAMPLES": [ { "value": "512", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "ADC_OFFSET_BINARY": [ { "value": "\"1\"", "resolve_type": "generated", "format": "bitString", "usage": "all" } ]
+        "DECIM_BITS": [ { "value": "8", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "AXIS_PACKET_WORDS": [ { "value": "512", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "ADC_OFFSET_BINARY": [ { "value": "\"1\"", "resolve_type": "generated", "format": "bitString", "usage": "all" } ],
+        "DDC_PHASE_INC": [ { "value": "0x13B13B14", "resolve_type": "generated", "format": "bitString", "usage": "all" } ]
       },
       "project_parameters": {
         "ARCHITECTURE": [ { "value": "zynq", "resolve_type": "generated", "usage": "all" } ],
@@ -123,5 +125,5 @@
       }
     }
   },
-  "checksum": "99c7d287"
+  "checksum": "ecb0f5c4"
 }

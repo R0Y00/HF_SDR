@@ -1,9 +1,10 @@
 `timescale 1ns / 1ps
 
 module HF_SDR_top #(
-    parameter integer DECIM_BITS = 6,          // 65 MHz / 64 = 1.015625 MSPS
-    parameter integer AXIS_PACKET_SAMPLES = 512,
-    parameter ADC_OFFSET_BINARY = 1'b1         // Most high-speed ADCs output offset binary
+    parameter integer DECIM_BITS = 8,          // 65 MHz / 256 = 253.90625 kIQ/s
+    parameter integer AXIS_PACKET_WORDS = 512,
+    parameter ADC_OFFSET_BINARY = 1'b1,        // Most high-speed ADCs output offset binary
+    parameter [31:0] DDC_PHASE_INC = 32'h13B13B14 // 5 MHz at 65 MHz sample clock
 )(
     (* CLOCK_FREQ_HZ = "65000000" *)
     (* ASSOCIATED_RESET = "rst_n" *)
@@ -36,12 +37,13 @@ module HF_SDR_top #(
 
     wire rst = ~rst_n;
 
-    adc_axis_source #(
+    ddc_axis_source #(
         .ADC_WIDTH(12),
         .DECIM_BITS(DECIM_BITS),
-        .PACKET_SAMPLES(AXIS_PACKET_SAMPLES),
-        .ADC_OFFSET_BINARY(ADC_OFFSET_BINARY)
-    ) adc_axis_source_i (
+        .PACKET_WORDS(AXIS_PACKET_WORDS),
+        .ADC_OFFSET_BINARY(ADC_OFFSET_BINARY),
+        .PHASE_INC(DDC_PHASE_INC)
+    ) ddc_axis_source_i (
         .clk(clk),
         .rst(rst),
         .adc_data(ad_ch1),

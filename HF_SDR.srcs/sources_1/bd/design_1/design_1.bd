@@ -1961,9 +1961,9 @@
       "clk_wiz_0_clk_out1": {
         "ports": [
           "clk_wiz_0/clk_out1",
-          "HF_SDR_top_0/clk",
           "axis_data_fifo_0/s_axis_aclk",
-          "proc_sys_reset_65M/slowest_sync_clk"
+          "proc_sys_reset_65M/slowest_sync_clk",
+          "HF_SDR_top_0/clk"
         ]
       },
       "clk_wiz_0_locked": {

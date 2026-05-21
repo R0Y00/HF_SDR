@@ -33,17 +33,19 @@
 #define PC_UDP_PORT             5001U
 
 /*
- * PL sends one AXI-Stream packet every 512 samples.  The DMA S2MM transfer
- * length must match that TLAST cadence, otherwise S2MM can stop early or wait.
+ * PL sends one AXI-Stream packet every 512 16-bit words.  In DDC mode that is
+ * 256 interleaved IQ samples.  The DMA S2MM transfer length must match TLAST.
  */
-#define SDR_SAMPLES_PER_PACKET  512U
+#define SDR_WORDS_PER_PACKET    512U
+#define SDR_IQ_SAMPLES_PER_PACKET 256U
 #define SDR_BYTES_PER_SAMPLE    2U
-#define SDR_PACKET_BYTES        (SDR_SAMPLES_PER_PACKET * SDR_BYTES_PER_SAMPLE)
+#define SDR_PACKET_BYTES        (SDR_WORDS_PER_PACKET * SDR_BYTES_PER_SAMPLE)
 #define SDR_UDP_MAGIC           0x52534648U
 #define SDR_UDP_HEADER_BYTES    16U
 #define SDR_UDP_PACKET_BYTES    (SDR_UDP_HEADER_BYTES + SDR_PACKET_BYTES)
 #define SDR_UDP_VERSION         1U
 #define SDR_SAMPLE_FORMAT_S16   1U
+#define SDR_SAMPLE_FORMAT_IQ_S16 2U
 
 #define SDR_PRINT_INTERVAL      1024U
 #define DMA_TIMEOUT_US          1000000U
@@ -93,8 +95,8 @@ int main(void)
     xil_printf("\r\nHF SDR ADC DMA UDP stream test\r\n");
     xil_printf("DMA base: 0x%08x\r\n", (unsigned int)DMA_BASEADDR);
     xil_printf("EMAC base: 0x%08x\r\n", (unsigned int)EMAC_BASEADDR);
-    xil_printf("Packet: %u samples, %u bytes\r\n",
-               (unsigned int)SDR_SAMPLES_PER_PACKET,
+    xil_printf("Packet: %u IQ samples, %u bytes\r\n",
+               (unsigned int)SDR_IQ_SAMPLES_PER_PACKET,
                (unsigned int)SDR_PACKET_BYTES);
     xil_printf("UDP frame: %u-byte header + %u-byte payload\r\n",
                (unsigned int)SDR_UDP_HEADER_BYTES,
@@ -356,8 +358,8 @@ static int SendSdrUdpPacket(uint32_t Sequence)
     Header->Magic = SDR_UDP_MAGIC;
     Header->Sequence = Sequence;
     Header->HeaderBytes = SDR_UDP_HEADER_BYTES;
-    Header->SampleCount = SDR_SAMPLES_PER_PACKET;
-    Header->SampleFormat = SDR_SAMPLE_FORMAT_S16;
+    Header->SampleCount = SDR_IQ_SAMPLES_PER_PACKET;
+    Header->SampleFormat = SDR_SAMPLE_FORMAT_IQ_S16;
     Header->PayloadBytes = SDR_PACKET_BYTES;
 
     for (uint32_t Index = 0U; Index < SDR_PACKET_BYTES; Index++) {
@@ -457,7 +459,7 @@ static void GetPacketStats(int *Min, int *Max, int *Avg, uint32_t *Changed)
     *Max = -32768;
     *Changed = 0U;
 
-    for (uint32_t Index = 0U; Index < SDR_SAMPLES_PER_PACKET; Index++) {
+    for (uint32_t Index = 0U; Index < SDR_WORDS_PER_PACKET; Index++) {
         int Value = (int)Samples[Index];
 
         if (Value < *Min) {
@@ -475,5 +477,5 @@ static void GetPacketStats(int *Min, int *Max, int *Avg, uint32_t *Changed)
         Sum += Value;
     }
 
-    *Avg = Sum / (int)SDR_SAMPLES_PER_PACKET;
+    *Avg = Sum / (int)SDR_WORDS_PER_PACKET;
 }

@@ -5,9 +5,10 @@ import argparse
 
 
 UDP_PORT = 5001
-SAMPLES_PER_PACKET = 512
+WORDS_PER_PACKET = 512
+IQ_SAMPLES_PER_PACKET = 256
 BYTES_PER_SAMPLE = 2
-PAYLOAD_BYTES = SAMPLES_PER_PACKET * BYTES_PER_SAMPLE
+PAYLOAD_BYTES = WORDS_PER_PACKET * BYTES_PER_SAMPLE
 HEADER_FORMAT = "<4sIHHHH"
 HEADER_BYTES = struct.calcsize(HEADER_FORMAT)
 MAGIC = b"HFSR"
@@ -25,7 +26,7 @@ def parse_args():
 
 
 def decode_samples(payload):
-    sample_count = min(len(payload) // BYTES_PER_SAMPLE, SAMPLES_PER_PACKET)
+    sample_count = min(len(payload) // BYTES_PER_SAMPLE, WORDS_PER_PACKET)
     return struct.unpack("<" + "h" * sample_count,
                          payload[:sample_count * BYTES_PER_SAMPLE])
 
@@ -63,6 +64,8 @@ def main():
             count += 1
             payload = data
             seq_text = "seq=?"
+            sample_format = 1
+            sample_count = WORDS_PER_PACKET
 
             if len(data) >= HEADER_BYTES:
                 magic, seq, header_bytes, sample_count, sample_format, payload_bytes = (
@@ -83,9 +86,11 @@ def main():
 
                     last_seq = seq
 
-                    if sample_count != SAMPLES_PER_PACKET:
+                    if sample_format == 1 and sample_count != WORDS_PER_PACKET:
                         print(f"sample_count warning: {sample_count}")
-                    if sample_format != 1:
+                    if sample_format == 2 and sample_count != IQ_SAMPLES_PER_PACKET:
+                        print(f"iq sample_count warning: {sample_count}")
+                    if sample_format not in (1, 2):
                         print(f"sample_format warning: {sample_format}")
 
             if len(payload) >= PAYLOAD_BYTES:
@@ -100,8 +105,9 @@ def main():
 
                 if not args.quiet:
                     head = " ".join(str(value) for value in samples[:16])
+                    fmt_text = "IQ_S16" if sample_format == 2 else "S16"
                     print(f"pkt={count} {seq_text} from={addr[0]}:{addr[1]} "
-                          f"len={len(data)} payload={len(payload)} "
+                          f"fmt={fmt_text} len={len(data)} payload={len(payload)} "
                           f"min={min(samples)} max={max(samples)} "
                           f"avg={sum(samples) // len(samples)} first: {head}")
             else:
@@ -111,7 +117,9 @@ def main():
             elapsed = now - last_time
             if elapsed >= 5.0:
                 payload_mbps = interval_payload_bytes * 8.0 / elapsed / 1_000_000.0
-                sample_rate = interval_packets * SAMPLES_PER_PACKET / elapsed
+                samples_per_packet = (IQ_SAMPLES_PER_PACKET
+                                      if sample_format == 2 else WORDS_PER_PACKET)
+                sample_rate = interval_packets * samples_per_packet / elapsed
                 print(f"rate={payload_mbps:.3f} Mbps "
                       f"sample_rate={sample_rate:.0f} S/s "
                       f"packets={interval_packets} lost={interval_lost} "
