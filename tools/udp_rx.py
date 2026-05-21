@@ -5,6 +5,7 @@ import argparse
 
 
 UDP_PORT = 5001
+SOCKET_BUFFER_BYTES = 8 * 1024 * 1024
 WORDS_PER_PACKET = 512
 IQ_SAMPLES_PER_PACKET = 256
 BYTES_PER_SAMPLE = 2
@@ -34,6 +35,7 @@ def decode_samples(payload):
 def main():
     args = parse_args()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER_BYTES)
     sock.bind(("0.0.0.0", args.port))
     sock.settimeout(2.0)
 

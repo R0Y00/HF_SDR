@@ -9,6 +9,7 @@ import numpy as np
 
 
 UDP_PORT = 5001
+SOCKET_BUFFER_BYTES = 8 * 1024 * 1024
 DEFAULT_SAMPLE_RATE = 65_000_000.0 / 256.0
 DEFAULT_CENTER_FREQ = 5_000_000.0
 WORDS_PER_PACKET = 512
@@ -39,6 +40,11 @@ def parse_args():
                         help="vertical display range in dB")
     parser.add_argument("--update-ms", type=int, default=200,
                         help="plot update interval in milliseconds")
+    parser.add_argument("--tone-frequency", type=float, default=None,
+                        help="optional RF test tone frequency in Hz for IRR display")
+    parser.add_argument("--window", choices=("hann", "blackman", "kaiser"),
+                        default="kaiser",
+                        help="FFT window type")
     return parser.parse_args()
 
 
@@ -80,10 +86,12 @@ def main():
         raise ValueError("--fft-size must be at least 256")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER_BYTES)
     sock.bind(("0.0.0.0", args.port))
     sock.settimeout(0.5)
 
-    ring_size = max(args.fft_size * 4, args.scope_size * 4)
+    snapshot_size = max(args.fft_size, args.scope_size)
+    ring_size = snapshot_size * 4
     ring = np.zeros(ring_size, dtype=np.complex64)
     state = {
         "write_pos": 0,
@@ -93,15 +101,24 @@ def main():
         "lost_packets": 0,
         "interval_packets": 0,
         "interval_samples": 0,
+        "interval_lost": 0,
         "running": True,
     }
     lock = threading.Lock()
-    window = np.hanning(args.fft_size).astype(np.float32)
+    if args.window == "blackman":
+        window = np.blackman(args.fft_size).astype(np.float32)
+    elif args.window == "kaiser":
+        window = np.kaiser(args.fft_size, 12.0).astype(np.float32)
+    else:
+        window = np.hanning(args.fft_size).astype(np.float32)
+    window_gain = float(np.sum(window))
     freqs = np.fft.fftshift(np.fft.fftfreq(args.fft_size,
                                            d=1.0 / args.sample_rate)) / 1000.0
     scope_t = np.arange(args.scope_size) / args.sample_rate * 1000.0
 
     last_rate_time = time.time()
+    scope_peak_i = 0.0
+    scope_peak_q = 0.0
 
     def receiver_thread():
         while state["running"]:
@@ -124,6 +141,7 @@ def main():
                             gap = (seq - expected) & 0xFFFFFFFF
                             if gap < 1000000:
                                 state["lost_packets"] += gap
+                                state["interval_lost"] += gap
                     state["last_seq"] = seq
 
                 write_pos = state["write_pos"]
@@ -154,7 +172,7 @@ def main():
                 data = ring[start:start + sample_count].copy()
             else:
                 first_part = ring_size - start
-                data = np.empty(sample_count, dtype=np.float32)
+                data = np.empty(sample_count, dtype=np.complex64)
                 data[:first_part] = ring[start:]
                 data[first_part:] = ring[:sample_count - first_part]
 
@@ -163,10 +181,12 @@ def main():
                 "lost_packets": state["lost_packets"],
                 "interval_packets": state["interval_packets"],
                 "interval_samples": state["interval_samples"],
+                "interval_lost": state["interval_lost"],
             }
             if reset_interval:
                 state["interval_packets"] = 0
                 state["interval_samples"] = 0
+                state["interval_lost"] = 0
             return data, stats
 
     rx_thread = threading.Thread(target=receiver_thread, daemon=True)
@@ -202,22 +222,22 @@ def main():
 
     try:
         while plt.fignum_exists(fig.number):
-            fft_snapshot = copy_latest(args.fft_size, reset_interval=True)
-            scope_snapshot = copy_latest(args.scope_size)
+            snapshot = copy_latest(snapshot_size, reset_interval=True)
 
-            if scope_snapshot is not None:
-                scope_block, _scope_stats = scope_snapshot
+            if snapshot is not None:
+                snapshot_block, stats = snapshot
+                scope_block = snapshot_block[-args.scope_size:]
                 scope_i = np.real(scope_block)
                 scope_q = np.imag(scope_block)
                 scope_i_line.set_ydata(scope_i)
                 scope_q_line.set_ydata(scope_q)
-                scope_peak = max(float(np.max(np.abs(scope_i))),
-                                 float(np.max(np.abs(scope_q))))
+                scope_peak_i = float(np.max(np.abs(scope_i)))
+                scope_peak_q = float(np.max(np.abs(scope_q)))
+                scope_peak = max(scope_peak_i, scope_peak_q)
                 scope_limit = max(512.0, scope_peak * 1.25)
                 scope_ax.set_ylim(-scope_limit, scope_limit)
 
-            if fft_snapshot is not None:
-                block, stats = fft_snapshot
+                block = snapshot_block[-args.fft_size:].copy()
                 now = time.time()
                 elapsed = now - last_rate_time
                 sample_rate_est = stats["interval_samples"] / elapsed if elapsed > 0 else 0.0
@@ -225,21 +245,36 @@ def main():
 
                 block -= np.mean(block)
                 spectrum = np.fft.fftshift(np.fft.fft(block * window))
-                magnitude = 20.0 * np.log10(
-                    np.abs(spectrum) / (args.fft_size * 32768.0) + 1e-12
-                )
+                power = (np.abs(spectrum) / (window_gain * 32768.0)) ** 2
+                magnitude = 10.0 * np.log10(power + 1e-24)
 
                 fft_line.set_ydata(magnitude)
                 peak_bin = int(np.argmax(magnitude))
                 peak_freq = freqs[peak_bin]
                 peak_rf = args.center_frequency + peak_freq * 1000.0
                 peak_db = magnitude[peak_bin]
+                irr_text = ""
+
+                if args.tone_frequency is not None:
+                    expected_freq = (args.tone_frequency -
+                                     args.center_frequency) / 1000.0
+                    expected_bin = int(np.argmin(np.abs(freqs - expected_freq)))
+                    image_bin = int(np.argmin(np.abs(freqs + expected_freq)))
+                    expected_db = magnitude[expected_bin]
+                    image_db = magnitude[image_bin]
+                    irr = expected_db - image_db
+                    irr_text = (
+                        f"\nexp={expected_freq:.1f} kHz "
+                        f"img={image_db:.1f} dBFS IRR={irr:.1f} dB"
+                    )
 
                 status.set_text(
                     f"packets={stats['total_packets']} lost={stats['lost_packets']}\n"
-                    f"rate={sample_rate_est:.0f} IQ/s\n"
+                    f"rate={sample_rate_est:.0f} IQ/s win_lost={stats['interval_lost']}\n"
                     f"peak={peak_freq:.1f} kHz {peak_db:.1f} dBFS\n"
-                    f"RF={peak_rf / 1_000_000.0:.6f} MHz"
+                    f"RF={peak_rf / 1_000_000.0:.6f} MHz\n"
+                    f"Ipk={scope_peak_i:.0f} Qpk={scope_peak_q:.0f}"
+                    f"{irr_text}"
                 )
 
             plt.pause(args.update_ms / 1000.0)
