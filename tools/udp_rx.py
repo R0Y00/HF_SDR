@@ -12,6 +12,8 @@ BYTES_PER_SAMPLE = 2
 PAYLOAD_BYTES = WORDS_PER_PACKET * BYTES_PER_SAMPLE
 HEADER_FORMAT = "<4sIHHHH"
 HEADER_BYTES = struct.calcsize(HEADER_FORMAT)
+HEADER_V2_FORMAT = "<4sIHHHHII"
+HEADER_V2_BYTES = struct.calcsize(HEADER_V2_FORMAT)
 MAGIC = b"HFSR"
 
 
@@ -68,12 +70,23 @@ def main():
             seq_text = "seq=?"
             sample_format = 1
             sample_count = WORDS_PER_PACKET
+            center_text = ""
 
             if len(data) >= HEADER_BYTES:
                 magic, seq, header_bytes, sample_count, sample_format, payload_bytes = (
                     struct.unpack_from(HEADER_FORMAT, data, 0)
                 )
                 if magic == MAGIC and header_bytes <= len(data):
+                    if header_bytes >= HEADER_V2_BYTES and len(data) >= HEADER_V2_BYTES:
+                        (_magic, _seq, _header_bytes, _sample_count,
+                         _sample_format, _payload_bytes, center_hz,
+                         sample_rate_hz) = struct.unpack_from(
+                            HEADER_V2_FORMAT, data, 0
+                        )
+                        center_text = (
+                            f" center={center_hz / 1_000_000.0:.6f}MHz"
+                            f" fs={sample_rate_hz}Hz"
+                        )
                     payload = data[header_bytes:header_bytes + payload_bytes]
                     seq_text = f"seq={seq}"
 
@@ -111,7 +124,8 @@ def main():
                     print(f"pkt={count} {seq_text} from={addr[0]}:{addr[1]} "
                           f"fmt={fmt_text} len={len(data)} payload={len(payload)} "
                           f"min={min(samples)} max={max(samples)} "
-                          f"avg={sum(samples) // len(samples)} first: {head}")
+                          f"avg={sum(samples) // len(samples)}{center_text} "
+                          f"first: {head}")
             else:
                 print(f"pkt={count} from={addr[0]}:{addr[1]} len={len(data)}")
 
@@ -125,6 +139,7 @@ def main():
                 print(f"rate={payload_mbps:.3f} Mbps "
                       f"sample_rate={sample_rate:.0f} S/s "
                       f"packets={interval_packets} lost={interval_lost} "
+                      f"board={addr[0]} "
                       f"total_packets={data_packets} total_lost={lost_packets} "
                       f"total_payload={total_payload_bytes}")
                 interval_packets = 0

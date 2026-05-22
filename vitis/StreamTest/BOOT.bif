@@ -1,7 +1,7 @@
 //arch = zynq; split = false; format = BIN
 the_ROM_image:
 {
-	[bootloader]D:\vivadoproject\HF_SDR\vitis\DataStreamTest\export\DataStreamTest\sw\boot\fsbl.elf
-	D:\vivadoproject\HF_SDR\vitis\StreamTest\_ide\bitstream\DataStreamTest.bit
+	[bootloader]D:\vivadoproject\HF_SDR\vitis\SDR_V1\export\SDR_V1\sw\boot\fsbl.elf
+	D:\vivadoproject\HF_SDR\vitis\StreamTest\_ide\bitstream\SDR_V1.bit
 	D:\vivadoproject\HF_SDR\vitis\StreamTest\build\StreamTest.elf
 }

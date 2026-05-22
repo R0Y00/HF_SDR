@@ -1,0 +1,7 @@
+//arch = zynq; split = false; format = BIN
+the_ROM_image:
+{
+	[bootloader]D:\vivadoproject\HF_SDR\vitis\SDR_V1\export\SDR_V1\sw\boot\fsbl.elf
+	D:\vivadoproject\HF_SDR\HF_SDR.runs\impl_1\design_1_wrapper.bit
+	D:\vivadoproject\HF_SDR\vitis\SDR_Ver_1\build\SDR_Ver_1.elf
+}

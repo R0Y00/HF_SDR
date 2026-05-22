@@ -118,3 +118,32 @@ set_property PACKAGE_PIN W14 [get_ports {ad_ch2[8]}]
 set_property PACKAGE_PIN P18 [get_ports {ad_ch2[9]}]
 set_property PACKAGE_PIN N17 [get_ports {ad_ch2[10]}]
 set_property PACKAGE_PIN U15 [get_ports {ad_ch2[11]}]
+
+# The DDC/ADC processing clock and the PS FCLK are generated from different
+# sources in this design. Data crosses this boundary through AXIS async FIFO or
+# explicit synchronizers/debug-only status sampling, so do not time these two
+# domains as related clocks.
+set_clock_groups -asynchronous \
+    -group [get_clocks clk_out1_design_1_clk_wiz_0_0] \
+    -group [get_clocks clk_fpga_0]
+
+# AXI-Lite control registers are written in the PS FCLK domain and sampled by
+# ddc_tune_axi_lite in the 65 MHz DDC domain. The update strobe is synchronized
+# separately, so these data/strobe crossings are intentional CDC paths.
+set_false_path \
+    -from [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/phase_inc_axi_reg\[[0-9]+\]}] \
+    -to   [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/phase_meta_reg\[[0-9]+\]}]
+
+set_false_path \
+    -from [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/phase_toggle_axi_reg}] \
+    -to   [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/phase_toggle_meta_reg}]
+
+set_false_path \
+    -from [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/clear_toggle_axi_reg}] \
+    -to   [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/clear_toggle_meta_reg}]
+
+# DDC debug/status counters are sampled by the PS AXI-Lite clock domain for
+# software visibility only. They are not used to control DDC data movement.
+set_false_path \
+    -from [get_cells -hier -regexp {.*ddc_ip_axis_source_i/(packet_count|clip_count|fifo_full_seen|axis_stall_seen|clip_seen|iq_fifo_count|iq_fifo_max_seen).*}] \
+    -to   [get_cells -hier -regexp {.*ddc_tune_axi_lite_i/(status_meta|counters_meta)_reg.*}]

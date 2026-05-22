@@ -19,6 +19,7 @@
 #include "xaxidma_hw.h"
 #include "xil_cache.h"
 #include "xil_printf.h"
+#include "xil_io.h"
 #include "xparameters.h"
 #include "xstatus.h"
 
@@ -29,7 +30,7 @@
  * Campus-network mode: the board obtains its own IP address by DHCP, then
  * streams UDP packets to the PC address below.
  */
-#define PC_IP_ADDR              "10.16.58.111"
+#define PC_IP_ADDR              "10.16.49.18"
 #define PC_UDP_PORT             5001U
 
 /*
@@ -54,6 +55,19 @@
 #define UDP_HELLO_PACKETS       20U
 #define DHCP_TIMEOUT_MS         60000U
 
+#define SDR_ADC_CLK_HZ          65000000ULL
+#define SDR_CENTER_FREQ_HZ      5000000ULL
+#define SDR_DDC_PHASE_REG       0x00U
+#define SDR_DDC_VERSION_REG     0x04U
+
+#if defined(XPAR_HF_SDR_TOP_0_BASEADDR)
+#define DDC_CTRL_BASEADDR       XPAR_HF_SDR_TOP_0_BASEADDR
+#elif defined(XPAR_HF_SDR_TOP_0_S_AXI_BASEADDR)
+#define DDC_CTRL_BASEADDR       XPAR_HF_SDR_TOP_0_S_AXI_BASEADDR
+#else
+#define DDC_CTRL_BASEADDR       0x40000000U
+#endif
+
 static XAxiDma AxiDma;
 static struct netif NetIf;
 static struct udp_pcb *UdpPcb;
@@ -72,6 +86,8 @@ typedef struct __attribute__((packed)) {
 static int InitDma(void);
 static int InitNetwork(void);
 static int InitUdp(void);
+static void ConfigureDdc(void);
+static uint32_t CalcDdsPhaseInc(uint64_t FreqHz);
 static int CaptureOnePacket(void);
 static int SendUdpPacket(const uint8_t *Data, uint16_t Length);
 static int SendSdrUdpPacket(uint32_t Sequence);
@@ -101,6 +117,7 @@ int main(void)
     xil_printf("UDP frame: %u-byte header + %u-byte payload\r\n",
                (unsigned int)SDR_UDP_HEADER_BYTES,
                (unsigned int)SDR_PACKET_BYTES);
+    ConfigureDdc();
 
     Status = InitDma();
     if (Status != XST_SUCCESS) {
@@ -349,6 +366,33 @@ static int SendUdpPacket(const uint8_t *Data, uint16_t Length)
     xil_printf("udp_send failed: %d\r\n", (int)Err);
     pbuf_free(Packet);
     return XST_FAILURE;
+}
+
+static void ConfigureDdc(void)
+{
+    uint32_t PhaseInc = CalcDdsPhaseInc(SDR_CENTER_FREQ_HZ);
+
+    xil_printf("DDC center: %u Hz, PINC=0x%08x\r\n",
+               (unsigned int)SDR_CENTER_FREQ_HZ,
+               (unsigned int)PhaseInc);
+
+    if (DDC_CTRL_BASEADDR == 0U) {
+        xil_printf("DDC AXI-Lite base not present in xparameters yet\r\n");
+        return;
+    }
+
+    Xil_Out32(DDC_CTRL_BASEADDR + SDR_DDC_PHASE_REG, PhaseInc);
+    xil_printf("DDC AXI-Lite base: 0x%08x version=0x%08x readback=0x%08x\r\n",
+               (unsigned int)DDC_CTRL_BASEADDR,
+               (unsigned int)Xil_In32(DDC_CTRL_BASEADDR + SDR_DDC_VERSION_REG),
+               (unsigned int)Xil_In32(DDC_CTRL_BASEADDR + SDR_DDC_PHASE_REG));
+}
+
+static uint32_t CalcDdsPhaseInc(uint64_t FreqHz)
+{
+    uint64_t Numerator = (FreqHz << 32) + (SDR_ADC_CLK_HZ / 2ULL);
+
+    return (uint32_t)(Numerator / SDR_ADC_CLK_HZ);
 }
 
 static int SendSdrUdpPacket(uint32_t Sequence)

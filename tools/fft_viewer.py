@@ -9,6 +9,7 @@ import numpy as np
 
 
 UDP_PORT = 5001
+CTRL_PORT = 5002
 SOCKET_BUFFER_BYTES = 8 * 1024 * 1024
 DEFAULT_SAMPLE_RATE = 65_000_000.0 / 256.0
 DEFAULT_CENTER_FREQ = 5_000_000.0
@@ -18,6 +19,8 @@ BYTES_PER_SAMPLE = 2
 PAYLOAD_BYTES = WORDS_PER_PACKET * BYTES_PER_SAMPLE
 HEADER_FORMAT = "<4sIHHHH"
 HEADER_BYTES = struct.calcsize(HEADER_FORMAT)
+HEADER_V2_FORMAT = "<4sIHHHHII"
+HEADER_V2_BYTES = struct.calcsize(HEADER_V2_FORMAT)
 MAGIC = b"HFSR"
 
 
@@ -25,6 +28,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="HF SDR live FFT viewer")
     parser.add_argument("--port", type=int, default=UDP_PORT,
                         help="UDP listen port")
+    parser.add_argument("--ctrl-port", type=int, default=CTRL_PORT,
+                        help="board UDP tuning control port")
     parser.add_argument("--sample-rate", type=float, default=DEFAULT_SAMPLE_RATE,
                         help="DDC output sample rate in IQ samples per second")
     parser.add_argument("--center-frequency", type=float,
@@ -48,11 +53,26 @@ def parse_args():
     return parser.parse_args()
 
 
+def parse_frequency(value):
+    text = str(value).strip().lower()
+    if text.endswith("mhz"):
+        return int(round(float(text[:-3]) * 1_000_000.0))
+    if text.endswith("m"):
+        return int(round(float(text[:-1]) * 1_000_000.0))
+    if text.endswith("khz"):
+        return int(round(float(text[:-3]) * 1_000.0))
+    if text.endswith("k"):
+        return int(round(float(text[:-1]) * 1_000.0))
+    return int(round(float(text)))
+
+
 def parse_packet(data):
     payload = data
     sequence = None
     sample_format = 1
     sample_count = WORDS_PER_PACKET
+    center_frequency = None
+    sample_rate = None
 
     if len(data) >= HEADER_BYTES:
         magic, seq, header_bytes, sample_count, sample_format, payload_bytes = (
@@ -61,12 +81,19 @@ def parse_packet(data):
 
         if magic == MAGIC and header_bytes <= len(data):
             if sample_format not in (1, 2) or sample_count == 0:
-                return None, None
+                return None, None, None, None
+            if header_bytes >= HEADER_V2_BYTES and len(data) >= HEADER_V2_BYTES:
+                (_magic, _seq, _header_bytes, _sample_count, _sample_format,
+                 _payload_bytes, center_hz, sample_rate_hz) = (
+                    struct.unpack_from(HEADER_V2_FORMAT, data, 0)
+                )
+                center_frequency = float(center_hz)
+                sample_rate = float(sample_rate_hz)
             payload = data[header_bytes:header_bytes + payload_bytes]
             sequence = seq
 
     if len(payload) < PAYLOAD_BYTES:
-        return None, sequence
+        return None, sequence, center_frequency, sample_rate
 
     words = np.frombuffer(payload[:PAYLOAD_BYTES], dtype="<i2")
     if sample_format == 2:
@@ -77,7 +104,7 @@ def parse_packet(data):
         words = words[:sample_count].astype(np.float32)
         samples = words.astype(np.complex64)
 
-    return samples, sequence
+    return samples, sequence, center_frequency, sample_rate
 
 
 def main():
@@ -102,6 +129,9 @@ def main():
         "interval_packets": 0,
         "interval_samples": 0,
         "interval_lost": 0,
+        "center_frequency": args.center_frequency,
+        "board_ip": "?",
+        "tune_status": "type frequency in this terminal, e.g. 4.9M",
         "running": True,
     }
     lock = threading.Lock()
@@ -123,17 +153,22 @@ def main():
     def receiver_thread():
         while state["running"]:
             try:
-                data, _addr = sock.recvfrom(4096)
+                data, addr = sock.recvfrom(4096)
             except socket.timeout:
                 continue
             except OSError:
                 break
 
-            samples, seq = parse_packet(data)
+            samples, seq, center_hz, _sample_rate_hz = parse_packet(data)
             if samples is None:
                 continue
 
             with lock:
+                state["board_ip"] = addr[0]
+
+                if center_hz is not None:
+                    state["center_frequency"] = center_hz
+
                 if seq is not None:
                     if state["last_seq"] is not None:
                         expected = (state["last_seq"] + 1) & 0xFFFFFFFF
@@ -182,6 +217,9 @@ def main():
                 "interval_packets": state["interval_packets"],
                 "interval_samples": state["interval_samples"],
                 "interval_lost": state["interval_lost"],
+                "center_frequency": state["center_frequency"],
+                "board_ip": state["board_ip"],
+                "tune_status": state["tune_status"],
             }
             if reset_interval:
                 state["interval_packets"] = 0
@@ -191,6 +229,59 @@ def main():
 
     rx_thread = threading.Thread(target=receiver_thread, daemon=True)
     rx_thread.start()
+
+    def tune_thread():
+        while state["running"]:
+            try:
+                text = input("Tune Hz/k/MHz> ").strip()
+            except EOFError:
+                return
+            except OSError:
+                return
+
+            if not text:
+                continue
+
+            try:
+                freq_hz = parse_frequency(text)
+            except ValueError:
+                with lock:
+                    state["tune_status"] = f"bad frequency: {text}"
+                print(f"bad frequency: {text}")
+                continue
+
+            with lock:
+                board_ip = state["board_ip"]
+
+            if board_ip == "?":
+                with lock:
+                    state["tune_status"] = "waiting for board IP from data stream"
+                print("waiting for board IP from data stream")
+                continue
+
+            message = f"FREQ {freq_hz}\n".encode("ascii")
+            ctrl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ctrl_sock.settimeout(1.0)
+            try:
+                ctrl_sock.sendto(message, (board_ip, args.ctrl_port))
+                try:
+                    reply, addr = ctrl_sock.recvfrom(1024)
+                    reply_text = reply.decode("ascii", errors="replace").strip()
+                    tune_status = (
+                        f"tune {freq_hz / 1_000_000.0:.6f} MHz: "
+                        f"{addr[0]} {reply_text}"
+                    )
+                except socket.timeout:
+                    tune_status = f"tune sent to {board_ip}, no reply"
+            finally:
+                ctrl_sock.close()
+
+            with lock:
+                state["tune_status"] = tune_status
+            print(tune_status)
+
+    stdin_thread = threading.Thread(target=tune_thread, daemon=True)
+    stdin_thread.start()
 
     plt.ion()
     fig, (scope_ax, fft_ax) = plt.subplots(2, 1, figsize=(9, 7))
@@ -215,10 +306,12 @@ def main():
     status = fft_ax.text(0.01, 0.98, "", transform=fft_ax.transAxes,
                          va="top", ha="left")
     fig.tight_layout()
+    plt.show(block=False)
 
     print(f"Listening on UDP 0.0.0.0:{args.port}")
     print(f"FFT size={args.fft_size} IQ sample_rate={args.sample_rate:.2f} S/s")
     print(f"Center frequency={args.center_frequency / 1_000_000.0:.6f} MHz")
+    print("Type a frequency here and press Enter to tune: 4900000, 4900k, 4.9M")
 
     try:
         while plt.fignum_exists(fig.number):
@@ -251,13 +344,14 @@ def main():
                 fft_line.set_ydata(magnitude)
                 peak_bin = int(np.argmax(magnitude))
                 peak_freq = freqs[peak_bin]
-                peak_rf = args.center_frequency + peak_freq * 1000.0
+                center_frequency = stats["center_frequency"]
+                peak_rf = center_frequency + peak_freq * 1000.0
                 peak_db = magnitude[peak_bin]
                 irr_text = ""
 
                 if args.tone_frequency is not None:
                     expected_freq = (args.tone_frequency -
-                                     args.center_frequency) / 1000.0
+                                     center_frequency) / 1000.0
                     expected_bin = int(np.argmin(np.abs(freqs - expected_freq)))
                     image_bin = int(np.argmin(np.abs(freqs + expected_freq)))
                     expected_db = magnitude[expected_bin]
@@ -271,13 +365,18 @@ def main():
                 status.set_text(
                     f"packets={stats['total_packets']} lost={stats['lost_packets']}\n"
                     f"rate={sample_rate_est:.0f} IQ/s win_lost={stats['interval_lost']}\n"
+                    f"board={stats['board_ip']}\n"
                     f"peak={peak_freq:.1f} kHz {peak_db:.1f} dBFS\n"
+                    f"center={center_frequency / 1_000_000.0:.6f} MHz\n"
                     f"RF={peak_rf / 1_000_000.0:.6f} MHz\n"
-                    f"Ipk={scope_peak_i:.0f} Qpk={scope_peak_q:.0f}"
+                    f"Ipk={scope_peak_i:.0f} Qpk={scope_peak_q:.0f}\n"
+                    f"{stats['tune_status']}"
                     f"{irr_text}"
                 )
 
-            plt.pause(args.update_ms / 1000.0)
+            fig.canvas.draw_idle()
+            fig.canvas.flush_events()
+            time.sleep(args.update_ms / 1000.0)
     finally:
         state["running"] = False
         sock.close()
