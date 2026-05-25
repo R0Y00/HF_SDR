@@ -23,6 +23,10 @@ module ddc_ip_axis_source #(
     localparam integer MIX_SHIFT = 15;
     localparam integer CIC_TO_FIR_SHIFT = 30;
     localparam integer FIR_TO_S16_SHIFT = 15;
+    // Post-FIR digital gain. 0 = original scaling, 2 = +12 dB.
+    // This helps weak HF signals use more of the 16-bit UDP sample range.
+    localparam integer OUTPUT_GAIN_SHIFT = 2;
+    localparam integer OUTPUT_TO_S16_SHIFT = FIR_TO_S16_SHIFT - OUTPUT_GAIN_SHIFT;
     localparam integer IQ_FIFO_ADDR_BITS = 12;
     localparam integer IQ_FIFO_DEPTH = (1 << IQ_FIFO_ADDR_BITS);
     localparam [IQ_FIFO_ADDR_BITS:0] IQ_FIFO_COUNT_MAX = IQ_FIFO_DEPTH;
@@ -97,10 +101,10 @@ module ddc_ip_axis_source #(
     wire axis_backpressure_event =
         m_axis_tvalid && !m_axis_tready && (iq_fifo_count >= STALL_REPORT_LEVEL);
     wire packet_last_word = packet_cnt == (PACKET_WORDS - 1);
-    wire output_clip_i = (fir_i_tdata >>> FIR_TO_S16_SHIFT) > 40'sd32767 ||
-                         (fir_i_tdata >>> FIR_TO_S16_SHIFT) < -40'sd32768;
-    wire output_clip_q = (fir_q_tdata >>> FIR_TO_S16_SHIFT) > 40'sd32767 ||
-                         (fir_q_tdata >>> FIR_TO_S16_SHIFT) < -40'sd32768;
+    wire output_clip_i = (fir_i_tdata >>> OUTPUT_TO_S16_SHIFT) > 40'sd32767 ||
+                         (fir_i_tdata >>> OUTPUT_TO_S16_SHIFT) < -40'sd32768;
+    wire output_clip_q = (fir_q_tdata >>> OUTPUT_TO_S16_SHIFT) > 40'sd32767 ||
+                         (fir_q_tdata >>> OUTPUT_TO_S16_SHIFT) < -40'sd32768;
     wire clip_event = fir_pair_accept && (mix_i_clip || mix_q_clip || output_clip_i || output_clip_q);
 
     assign m_axis_tkeep = 2'b11;
@@ -220,8 +224,8 @@ module ddc_ip_axis_source #(
             end
 
             if (fir_pair_accept) begin
-                iq_fifo_i[iq_wr_ptr] <= sat16(fir_i_tdata >>> FIR_TO_S16_SHIFT);
-                iq_fifo_q[iq_wr_ptr] <= sat16(fir_q_tdata >>> FIR_TO_S16_SHIFT);
+                iq_fifo_i[iq_wr_ptr] <= sat16(fir_i_tdata >>> OUTPUT_TO_S16_SHIFT);
+                iq_fifo_q[iq_wr_ptr] <= sat16(fir_q_tdata >>> OUTPUT_TO_S16_SHIFT);
                 iq_wr_ptr <= iq_wr_ptr + 1'b1;
             end
 

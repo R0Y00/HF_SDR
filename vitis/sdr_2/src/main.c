@@ -30,7 +30,7 @@
  * Campus-network mode: the board obtains its own IP address by DHCP, then
  * streams UDP packets to the PC address below.
  */
-#define PC_IP_ADDR              "10.16.49.18"
+#define PC_IP_ADDR              "10.16.34.203"
 #define PC_UDP_PORT             5001U
 #define SDR_CTRL_UDP_PORT       5002U
 
