@@ -19,7 +19,7 @@ MAGIC = b"HFSR"
 def parse_args():
     parser = argparse.ArgumentParser(description="HF SDR IQ packet diagnostic")
     parser.add_argument("--port", type=int, default=UDP_PORT)
-    parser.add_argument("--sample-rate", type=float, default=65_000_000.0 / 256.0)
+    parser.add_argument("--sample-rate", type=float, default=65_000_000.0 / 64.0)
     parser.add_argument("--center-frequency", type=float, default=5_000_000.0)
     parser.add_argument("--tone-frequency", type=float, default=4_950_000.0,
                         help="expected RF test tone frequency in Hz")

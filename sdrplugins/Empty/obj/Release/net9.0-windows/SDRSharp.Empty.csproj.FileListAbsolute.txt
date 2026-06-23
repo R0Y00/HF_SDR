@@ -1,0 +1,14 @@
+D:\vivadoproject\HF_SDR\sdrplugins\Release\net9.0-windows\SDRSharp.Empty.deps.json
+D:\vivadoproject\HF_SDR\sdrplugins\Release\net9.0-windows\SDRSharp.Empty.dll
+D:\vivadoproject\HF_SDR\sdrplugins\Release\net9.0-windows\SDRSharp.Empty.pdb
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.csproj.AssemblyReference.cache
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.ControlPanel.resources
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.csproj.GenerateResource.cache
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.GeneratedMSBuildEditorConfig.editorconfig
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.csproj.CoreCompileInputs.cache
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.sourcelink.json
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.7B65EA3E.Up2Date
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.dll
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\refint\SDRSharp.Empty.dll
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\SDRSharp.Empty.pdb
+D:\vivadoproject\HF_SDR\sdrplugins\Empty\obj\Release\net9.0-windows\ref\SDRSharp.Empty.dll

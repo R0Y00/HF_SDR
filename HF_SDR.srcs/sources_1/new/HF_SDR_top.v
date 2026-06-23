@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module HF_SDR_top #(
-    parameter integer DECIM_BITS = 8,          // 65 MHz / 256 = 253.90625 kIQ/s
+    parameter integer DECIM_BITS = 6,          // legacy simple ADC decimator setting
     parameter integer AXIS_PACKET_WORDS = 512,
     parameter ADC_OFFSET_BINARY = 1'b1,        // Most high-speed ADCs output offset binary
     parameter [31:0] DDC_PHASE_INC = 32'h13B13B14 // 5 MHz at 65 MHz sample clock
@@ -11,9 +11,9 @@ module HF_SDR_top #(
     input  wire        clk,
     input  wire        rst_n,
 
-    // ADC inputs. Only channel 1 is used in the first receiver build.
-    input  wire [11:0] ad_ch1,
-    input  wire [11:0] ad_ch2,
+    // ADC inputs. Only channel 1 is used in this single-channel receiver build.
+    input  wire [15:0] ad_ch1,
+    input  wire [15:0] ad_ch2,
 
     // ADC/DAC board interface.
     output wire        ad_clk_ch1,
@@ -120,7 +120,7 @@ module HF_SDR_top #(
     );
 
     ddc_ip_axis_source #(
-        .ADC_WIDTH(12),
+        .ADC_WIDTH(16),
         .PACKET_WORDS(AXIS_PACKET_WORDS),
         .ADC_OFFSET_BINARY(ADC_OFFSET_BINARY)
     ) ddc_ip_axis_source_i (

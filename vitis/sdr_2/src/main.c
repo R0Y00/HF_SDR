@@ -27,10 +27,37 @@
 #define EMAC_BASEADDR           XPAR_XEMACPS_0_BASEADDR
 
 /*
- * Campus-network mode: the board obtains its own IP address by DHCP, then
- * streams UDP packets to the PC address below.
+ * Network mode:
+ * - SDR_USE_DHCP = 1: campus/LAN mode, board obtains IP by DHCP.
+ * - SDR_USE_DHCP = 0: direct-connect/static mode.
+ *
+ * Keep the PC address paired with the selected mode so switching only needs
+ * this one macro.
  */
-#define PC_IP_ADDR              "10.16.34.203"
+#define SDR_USE_DHCP            0
+
+#define PC_IP_ADDR_DHCP         "10.16.25.167"
+#define PC_IP_ADDR_STATIC       "192.168.1.100"
+
+#define STATIC_IP_ADDR0         192U
+#define STATIC_IP_ADDR1         168U
+#define STATIC_IP_ADDR2         1U
+#define STATIC_IP_ADDR3         10U
+#define STATIC_NETMASK_ADDR0    255U
+#define STATIC_NETMASK_ADDR1    255U
+#define STATIC_NETMASK_ADDR2    255U
+#define STATIC_NETMASK_ADDR3    0U
+#define STATIC_GW_ADDR0         192U
+#define STATIC_GW_ADDR1         168U
+#define STATIC_GW_ADDR2         1U
+#define STATIC_GW_ADDR3         1U
+
+#if SDR_USE_DHCP
+#define PC_IP_ADDR              PC_IP_ADDR_DHCP
+#else
+#define PC_IP_ADDR              PC_IP_ADDR_STATIC
+#endif
+
 #define PC_UDP_PORT             5001U
 #define SDR_CTRL_UDP_PORT       5002U
 
@@ -49,7 +76,8 @@
 #define SDR_SAMPLE_FORMAT_S16   1U
 #define SDR_SAMPLE_FORMAT_IQ_S16 2U
 
-#define SDR_PRINT_INTERVAL      1024U
+#define SDR_RUNTIME_PRINTS      0U
+#define SDR_PRINT_INTERVAL      32768U
 #define SDR_SG_RX_BD_COUNT      128U
 #define SDR_SG_BD_SPACE_BYTES   (SDR_SG_RX_BD_COUNT * XAXIDMA_BD_MINIMUM_ALIGNMENT)
 #define UDP_SEND_RETRIES        10U
@@ -61,6 +89,8 @@
 #define SDR_STARTUP_DRAIN_IDLE_LOOPS 256U
 
 #define SDR_ADC_CLK_HZ          65000000ULL
+#define SDR_TOTAL_DECIMATION    64ULL
+#define SDR_IQ_SAMPLE_RATE_HZ   (SDR_ADC_CLK_HZ / SDR_TOTAL_DECIMATION)
 #define SDR_CENTER_FREQ_HZ      4900000ULL
 #define SDR_DDC_PHASE_REG       0x00U
 #define SDR_DDC_VERSION_REG     0x04U
@@ -68,8 +98,8 @@
 #define SDR_DDC_COUNTER_REG     0x0CU
 #define SDR_DDC_STATUS_FULL     0x00000001U
 #define SDR_DDC_STATUS_FIFO_SHIFT 4U
-#define SDR_DDC_STATUS_MAX_FIFO_SHIFT 17U
-#define SDR_DDC_STATUS_FIFO_MASK 0x1fffU
+#define SDR_DDC_STATUS_MAX_FIFO_SHIFT 18U
+#define SDR_DDC_STATUS_FIFO_MASK 0x3fffU
 #define SDR_DDC_DRAIN_LEVEL     16U
 
 #if defined(XPAR_HF_SDR_TOP_0_BASEADDR)
@@ -119,15 +149,17 @@ static int SetupRxBd(XAxiDma_Bd *BdPtr, uint8_t *Buffer);
 static int PollRxPacket(uint8_t **Data, u32 *Length, XAxiDma_Bd **DoneBd);
 static int RequeueRxBd(XAxiDma_Bd *DoneBd, uint8_t *Buffer);
 static int SendUdpPacket(const uint8_t *Data, uint16_t Length);
-static int SendSdrUdpPacket(uint32_t Sequence, const uint8_t *Payload);
+static void PrepareSdrUdpPacket(uint32_t Sequence, const uint8_t *Payload);
 static void SendUdpHelloPackets(void);
 static void PollNetwork(void);
 static void PrintIp(const char *Name, const ip_addr_t *Ip);
 static void PrintS2mmStatus(const char *Tag);
 static void PrintDdcStatus(const char *Tag);
 static int DrainStartupDma(void);
+#if SDR_RUNTIME_PRINTS
 static void GetPacketStats(const uint8_t *Data, int *Min, int *Max, int *Avg,
                            uint32_t *Changed);
+#endif
 
 int main(void)
 {
@@ -150,6 +182,10 @@ int main(void)
     xil_printf("UDP frame: %u-byte header + %u-byte payload\r\n",
                (unsigned int)SDR_UDP_HEADER_BYTES,
                (unsigned int)SDR_PACKET_BYTES);
+    xil_printf("DDC clock: %u Hz, decimation: %u, IQ rate: %u S/s\r\n",
+               (unsigned int)SDR_ADC_CLK_HZ,
+               (unsigned int)SDR_TOTAL_DECIMATION,
+               (unsigned int)SDR_IQ_SAMPLE_RATE_HZ);
     ConfigureDdc(SDR_CENTER_FREQ_HZ);
 
     Status = InitDma();
@@ -188,7 +224,9 @@ int main(void)
     }
 
     Xil_Out32(DDC_CTRL_BASEADDR + SDR_DDC_STATUS_REG, 1U);
+#if SDR_RUNTIME_PRINTS
     PrintDdcStatus("stream-start");
+#endif
 
     while (1) {
         uint8_t *PacketData;
@@ -230,9 +268,11 @@ int main(void)
 
         if (StreamSynced == 0U) {
             StreamSynced = 1U;
+#if SDR_RUNTIME_PRINTS
             xil_printf("SG stream synchronized after %u dropped packet(s)\r\n",
                        (unsigned int)SyncDrops);
             PrintDdcStatus("sync");
+#endif
         }
 
         if (StatusClearedAfterDrain == 0U) {
@@ -245,18 +285,13 @@ int main(void)
                 Xil_Out32(DDC_CTRL_BASEADDR + SDR_DDC_STATUS_REG, 1U);
                 usleep(100U);
                 StatusClearedAfterDrain = 1U;
+#if SDR_RUNTIME_PRINTS
                 PrintDdcStatus("drain-clear");
+#endif
             }
         }
 
-        Status = SendSdrUdpPacket(Sequence, PacketData);
-        if (Status == XST_SUCCESS) {
-            SentPackets++;
-            Sequence++;
-        } else {
-            DroppedPackets++;
-        }
-
+#if SDR_RUNTIME_PRINTS
         if ((SentPackets != 0U) &&
             ((SentPackets % SDR_PRINT_INTERVAL) == 0U)) {
             int Min;
@@ -271,6 +306,9 @@ int main(void)
                        Min, Max, Avg, (unsigned int)Changed);
             PrintDdcStatus("ddc");
         }
+#endif
+
+        PrepareSdrUdpPacket(Sequence, PacketData);
 
         Status = RequeueRxBd(DoneBd, PacketData);
         if (Status != XST_SUCCESS) {
@@ -278,6 +316,14 @@ int main(void)
             PrintS2mmStatus("requeue");
             cleanup_platform();
             return XST_FAILURE;
+        }
+
+        Status = SendUdpPacket(TxBuffer, SDR_UDP_PACKET_BYTES);
+        if (Status == XST_SUCCESS) {
+            SentPackets++;
+            Sequence++;
+        } else {
+            DroppedPackets++;
         }
     }
 }
@@ -378,18 +424,42 @@ static int InitDma(void)
 
 static int InitNetwork(void)
 {
+#if SDR_USE_DHCP
     err_t Err;
+#else
+    ip_addr_t IpAddr;
+    ip_addr_t Netmask;
+    ip_addr_t Gateway;
+#endif
     unsigned char MacAddress[] = {
         0x00U, 0x0aU, 0x35U, 0x00U, 0x01U, 0x02U
     };
 
     lwip_init();
 
+#if SDR_USE_DHCP
     if (xemac_add(&NetIf, NULL, NULL, NULL,
                   MacAddress, EMAC_BASEADDR) == NULL) {
         xil_printf("xemac_add failed\r\n");
         return XST_FAILURE;
     }
+#else
+    IP4_ADDR(&IpAddr,
+             STATIC_IP_ADDR0, STATIC_IP_ADDR1,
+             STATIC_IP_ADDR2, STATIC_IP_ADDR3);
+    IP4_ADDR(&Netmask,
+             STATIC_NETMASK_ADDR0, STATIC_NETMASK_ADDR1,
+             STATIC_NETMASK_ADDR2, STATIC_NETMASK_ADDR3);
+    IP4_ADDR(&Gateway,
+             STATIC_GW_ADDR0, STATIC_GW_ADDR1,
+             STATIC_GW_ADDR2, STATIC_GW_ADDR3);
+
+    if (xemac_add(&NetIf, &IpAddr, &Netmask, &Gateway,
+                  MacAddress, EMAC_BASEADDR) == NULL) {
+        xil_printf("xemac_add failed\r\n");
+        return XST_FAILURE;
+    }
+#endif
 
     netif_set_default(&NetIf);
     netif_set_up(&NetIf);
@@ -397,6 +467,8 @@ static int InitNetwork(void)
     xil_printf("MAC: %02x:%02x:%02x:%02x:%02x:%02x\r\n",
                MacAddress[0], MacAddress[1], MacAddress[2],
                MacAddress[3], MacAddress[4], MacAddress[5]);
+
+#if SDR_USE_DHCP
     xil_printf("Starting DHCP...\r\n");
     Err = dhcp_start(&NetIf);
     if (Err != ERR_OK) {
@@ -432,6 +504,9 @@ static int InitNetwork(void)
                    (unsigned int)DHCP_TIMEOUT_MS);
         return XST_FAILURE;
     }
+#else
+    xil_printf("Using static network configuration\r\n");
+#endif
 
     PrintIp("Board IP", &NetIf.ip_addr);
     PrintIp("Netmask ", &NetIf.netmask);
@@ -751,7 +826,7 @@ static void SendControlReply(const ip_addr_t *Addr, u16_t Port,
     pbuf_free(Reply);
 }
 
-static int SendSdrUdpPacket(uint32_t Sequence, const uint8_t *Payload)
+static void PrepareSdrUdpPacket(uint32_t Sequence, const uint8_t *Payload)
 {
     SdrUdpHeader *Header = (SdrUdpHeader *)TxBuffer;
 
@@ -762,13 +837,11 @@ static int SendSdrUdpPacket(uint32_t Sequence, const uint8_t *Payload)
     Header->SampleFormat = SDR_SAMPLE_FORMAT_IQ_S16;
     Header->PayloadBytes = SDR_PACKET_BYTES;
     Header->CenterFreqHz = (uint32_t)DdcCenterFreqHz;
-    Header->SampleRateHz = (uint32_t)(SDR_ADC_CLK_HZ / 256ULL);
+    Header->SampleRateHz = (uint32_t)SDR_IQ_SAMPLE_RATE_HZ;
 
     for (uint32_t Index = 0U; Index < SDR_PACKET_BYTES; Index++) {
         TxBuffer[SDR_UDP_HEADER_BYTES + Index] = Payload[Index];
     }
-
-    return SendUdpPacket(TxBuffer, SDR_UDP_PACKET_BYTES);
 }
 
 static void SendUdpHelloPackets(void)
@@ -824,6 +897,7 @@ static void PrintDdcStatus(const char *Tag)
     u32 MaxFifoLevel;
     u32 PacketCount;
     u32 ClipCount;
+    u32 DebugFlags;
 
     if (DDC_CTRL_BASEADDR == 0U) {
         return;
@@ -836,9 +910,10 @@ static void PrintDdcStatus(const char *Tag)
     MaxFifoLevel = (Status >> SDR_DDC_STATUS_MAX_FIFO_SHIFT) &
                    SDR_DDC_STATUS_FIFO_MASK;
     PacketCount = Counters & 0xffffU;
-    ClipCount = Counters >> 16;
+    ClipCount = (Counters >> 16) & 0xffU;
+    DebugFlags = Counters >> 24;
 
-    xil_printf("[%s] DDC status=0x%08x fifo=%u maxfifo=%u full=%u full_seen=%u stall_seen=%u clip_seen=%u packets=%u clips=%u\r\n",
+    xil_printf("[%s] DDC status=0x%08x pack=%u maxpack=%u pack_busy=%u fir_block_seen=%u stall_seen=%u clip_seen=%u packets=%u clips=%u dbg=0x%02x ci_halt=%u cq_halt=%u ci_bp=%u fir_bp=%u iq_mis=%u nofifo=%u axis_stall=%u pack_block=%u\r\n",
                Tag,
                (unsigned int)Status,
                (unsigned int)FifoLevel,
@@ -848,7 +923,16 @@ static void PrintDdcStatus(const char *Tag)
                (unsigned int)((Status >> 2) & 0x1U),
                (unsigned int)((Status >> 3) & 0x1U),
                (unsigned int)PacketCount,
-               (unsigned int)ClipCount);
+               (unsigned int)ClipCount,
+               (unsigned int)DebugFlags,
+               (unsigned int)(DebugFlags & 0x1U),
+               (unsigned int)((DebugFlags >> 1) & 0x1U),
+               (unsigned int)((DebugFlags >> 2) & 0x1U),
+               (unsigned int)((DebugFlags >> 3) & 0x1U),
+               (unsigned int)((DebugFlags >> 4) & 0x1U),
+               (unsigned int)((DebugFlags >> 5) & 0x1U),
+               (unsigned int)((DebugFlags >> 6) & 0x1U),
+               (unsigned int)((DebugFlags >> 7) & 0x1U));
 }
 
 static int DrainStartupDma(void)
@@ -905,6 +989,7 @@ static int DrainStartupDma(void)
     return XST_SUCCESS;
 }
 
+#if SDR_RUNTIME_PRINTS
 static void GetPacketStats(const uint8_t *Data, int *Min, int *Max, int *Avg,
                            uint32_t *Changed)
 {
@@ -935,3 +1020,4 @@ static void GetPacketStats(const uint8_t *Data, int *Min, int *Max, int *Avg,
 
     *Avg = Sum / (int)SDR_WORDS_PER_PACKET;
 }
+#endif

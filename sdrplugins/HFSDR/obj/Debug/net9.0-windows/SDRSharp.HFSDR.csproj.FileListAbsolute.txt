@@ -1,0 +1,14 @@
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.csproj.AssemblyReference.cache
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.ControlPanel.resources
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.csproj.GenerateResource.cache
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.GeneratedMSBuildEditorConfig.editorconfig
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.csproj.CoreCompileInputs.cache
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.sourcelink.json
+D:\vivadoproject\HF_SDR\sdrplugins\Debug\net9.0-windows\SDRSharp.HFSDR.deps.json
+D:\vivadoproject\HF_SDR\sdrplugins\Debug\net9.0-windows\SDRSharp.HFSDR.dll
+D:\vivadoproject\HF_SDR\sdrplugins\Debug\net9.0-windows\SDRSharp.HFSDR.pdb
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.624979D8.Up2Date
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.dll
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\refint\SDRSharp.HFSDR.dll
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\SDRSharp.HFSDR.pdb
+D:\vivadoproject\HF_SDR\sdrplugins\HFSDR\obj\Debug\net9.0-windows\ref\SDRSharp.HFSDR.dll

@@ -306,13 +306,22 @@ Important constants:
 Network mode:
 
 - lwIP 2.2.0
-- DHCP enabled
+- DHCP/static mode is selected at compile time in `vitis/sdr_2/src/main.c`:
+  - `#define SDR_USE_DHCP 1U` enables campus/LAN DHCP mode
+  - `#define SDR_USE_DHCP 0U` enables direct-connect/static mode
+- Current DHCP PC target:
+  - `PC_IP_ADDR_DHCP = "10.16.34.203"`
+- Current static/direct-connect defaults:
+  - board IP: `192.168.1.10`
+  - netmask: `255.255.255.0`
+  - gateway: `192.168.1.1`
+  - PC target: `192.168.1.100`
 - PS GEM/EMAC base: `0xE000B000`
 - MAC address currently hard-coded:
   - `00:0A:35:00:01:02`
 - Board can work on campus LAN via DHCP.
-- Direct-connect static mode was tested earlier, but current app is DHCP LAN
-  mode.
+- Direct-connect static mode was tested earlier and is now available through
+  the `SDR_USE_DHCP` macro.
 
 DMA mode:
 

@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x15EE026C52828280",
+      "boundary_crc": "0xFAEDE68AFD9CD4FE",
       "device": "xc7z020clg400-2",
       "gen_directory": "../../../../HF_SDR.gen/sources_1/bd/design_1",
       "name": "design_1",
@@ -28,7 +28,8 @@
         },
         "m00_couplers": {}
       },
-      "proc_sys_reset_65M": ""
+      "proc_sys_reset_65M": "",
+      "ila_0": ""
     },
     "interface_ports": {
       "DDR": {
@@ -252,31 +253,11 @@
           }
         }
       },
-      "ad_ch1": {
-        "direction": "I",
-        "left": "11",
-        "right": "0"
-      },
-      "ad_ch2": {
-        "direction": "I",
-        "left": "11",
-        "right": "0"
-      },
       "ad_clk_ch1": {
         "direction": "O"
       },
       "ad_clk_ch2": {
         "direction": "O"
-      },
-      "da_ch1": {
-        "direction": "O",
-        "left": "13",
-        "right": "0"
-      },
-      "da_ch2": {
-        "direction": "O",
-        "left": "13",
-        "right": "0"
       },
       "da_clk_ch1": {
         "direction": "O"
@@ -289,6 +270,26 @@
       },
       "da_wrt_ch2": {
         "direction": "O"
+      },
+      "da_ch2": {
+        "direction": "O",
+        "left": "13",
+        "right": "0"
+      },
+      "da_ch1": {
+        "direction": "O",
+        "left": "13",
+        "right": "0"
+      },
+      "ad_ch1": {
+        "direction": "I",
+        "left": "15",
+        "right": "0"
+      },
+      "ad_ch2": {
+        "direction": "I",
+        "left": "15",
+        "right": "0"
       }
     },
     "components": {
@@ -690,12 +691,12 @@
           },
           "ad_ch1": {
             "direction": "I",
-            "left": "11",
+            "left": "15",
             "right": "0"
           },
           "ad_ch2": {
             "direction": "I",
-            "left": "11",
+            "left": "15",
             "right": "0"
           },
           "ad_clk_ch1": {
@@ -1646,7 +1647,7 @@
         "has_run_ip_tcl": "true",
         "parameters": {
           "FIFO_DEPTH": {
-            "value": "4096"
+            "value": "8192"
           },
           "FIFO_MODE": {
             "value": "2"
@@ -2017,6 +2018,10 @@
             "interface_ports": {
               "S00_AXI": {
                 "bd_attributes": {
+                  "BRIDGES": {
+                    "value": "M00_AXI",
+                    "value_src": "auto"
+                  },
                   "TYPE": {
                     "value": "interior",
                     "value_src": "default"
@@ -2038,6 +2043,10 @@
               },
               "S01_AXI": {
                 "bd_attributes": {
+                  "BRIDGES": {
+                    "value": "M00_AXI",
+                    "value_src": "auto"
+                  },
                   "TYPE": {
                     "value": "interior",
                     "value_src": "default"
@@ -2458,6 +2467,28 @@
         "xci_path": "ip\\design_1_proc_sys_reset_0_0\\design_1_proc_sys_reset_0_0.xci",
         "inst_hier_path": "proc_sys_reset_65M",
         "has_run_ip_tcl": "true"
+      },
+      "ila_0": {
+        "vlnv": "xilinx.com:ip:ila:6.2",
+        "ip_revision": "19",
+        "xci_name": "design_1_ila_0_0",
+        "xci_path": "ip\\design_1_ila_0_0\\design_1_ila_0_0.xci",
+        "inst_hier_path": "ila_0",
+        "has_run_ip_tcl": "true",
+        "parameters": {
+          "C_DATA_DEPTH": {
+            "value": "8192"
+          },
+          "C_MONITOR_TYPE": {
+            "value": "Native"
+          },
+          "C_PROBE0_WIDTH": {
+            "value": "16"
+          },
+          "C_TRIGIN_EN": {
+            "value": "false"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -2574,7 +2605,8 @@
       "ad_ch1_0_1": {
         "ports": [
           "ad_ch1",
-          "HF_SDR_top_0/ad_ch1"
+          "HF_SDR_top_0/ad_ch1",
+          "ila_0/probe0"
         ]
       },
       "ad_ch2_0_1": {
@@ -2600,7 +2632,8 @@
           "clk_wiz_0/clk_out1",
           "axis_data_fifo_0/s_axis_aclk",
           "proc_sys_reset_65M/slowest_sync_clk",
-          "HF_SDR_top_0/clk"
+          "HF_SDR_top_0/clk",
+          "ila_0/clk"
         ]
       },
       "clk_wiz_0_locked": {
@@ -2629,9 +2662,9 @@
           "axi_mem_intercon/ACLK",
           "axi_mem_intercon/S00_ACLK",
           "axi_mem_intercon/M00_ACLK",
-          "HF_SDR_top_0/s_axi_aclk",
           "axi_dma_0/m_axi_sg_aclk",
-          "axi_mem_intercon/S01_ACLK"
+          "axi_mem_intercon/S01_ACLK",
+          "HF_SDR_top_0/s_axi_aclk"
         ]
       },
       "processing_system7_0_FCLK_RESET0_N": {
@@ -2655,8 +2688,8 @@
           "axi_mem_intercon/S00_ARESETN",
           "axi_mem_intercon/M00_ARESETN",
           "axi_mem_intercon/ARESETN",
-          "HF_SDR_top_0/s_axi_aresetn",
-          "axi_mem_intercon/S01_ARESETN"
+          "axi_mem_intercon/S01_ARESETN",
+          "HF_SDR_top_0/s_axi_aresetn"
         ]
       }
     },
